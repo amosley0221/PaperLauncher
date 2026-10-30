@@ -60,6 +60,9 @@ class LauncherVM(app: Application) : AndroidViewModel(app) {
     var appPickerFor by mutableStateOf<String?>(null)
     var searchQuery by mutableStateOf("")
     var gridRows by mutableStateOf(9)
+    /** Bottom (window px, before any keyboard shift) of the text field being typed in, if any. */
+    var imeAnchor by mutableStateOf<Float?>(null)
+    var imeShift by mutableStateOf(0f)
     val pages = mutableStateMapOf<DisplayKey, Int>()
     var displayKey by mutableStateOf(DisplayKey.INNER_HERO)
 

@@ -28,7 +28,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.GenericShape
@@ -236,7 +241,17 @@ private fun HomeScreen(vm: LauncherVM) {
     val storage by produceState(Device.storage(ctx)) { while (true) { value = Device.storage(ctx); delay(60_000) } }
     val live = Live(battery, signal, storage)
 
-    BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+    // Keep the keyboard out of these insets: if it shrank the area, the layout would switch
+    // (e.g. to tablet landscape), the focused field would vanish and the keyboard would close.
+    val view = LocalView.current
+    val imeBottom = WindowInsets.ime.getBottom(density).toFloat()
+    val margin = with(density) { 16.dp.toPx() }
+    val anchor = vm.imeAnchor
+    val target = if (imeBottom > 0f && anchor != null) maxOf(0f, anchor + margin - (view.rootView.height - imeBottom)) else 0f
+    val shift by animateFloatAsState(target, tween(200), label = "ime")
+    LaunchedEffect(shift) { vm.imeShift = shift }
+
+    BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))) {
         val dk = displayKeyFor(maxWidth.value, maxHeight.value, vm.settings.innerHero)
         LaunchedEffect(dk) { vm.displayKey = dk }
         val layout = vm.layouts[dk].orEmpty()
@@ -330,6 +345,7 @@ private fun HomeScreen(vm: LauncherVM) {
                     .size(with(density) { geo.width.toDp() }, with(density) { geo.span(geo.rows).toDp() })
                     .graphicsLayer {
                         translationX = slide.value * size.width
+                        translationY = -shift
                         alpha = 1f - abs(slide.value) * 1.2f
                     }
             ) {

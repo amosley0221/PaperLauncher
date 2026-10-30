@@ -30,6 +30,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -427,7 +431,20 @@ fun AskWidget(vm: LauncherVM, w: Widget, size: Size, editing: Boolean, onAgent: 
     }
     @Composable
     fun Field(fontSize: Float, modifier: Modifier) {
-        Box(modifier) {
+        val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
+        var focused by remember { mutableStateOf(false) }
+        fun report() {
+            val c = coords[0]
+            if (focused && c != null && c.isAttached) vm.imeAnchor = c.boundsInRoot().bottom + vm.imeShift
+        }
+        Box(
+            modifier
+                .onGloballyPositioned { coords[0] = it; if (focused && vm.imeShift == 0f) report() }
+                .onFocusChanged { f ->
+                    focused = f.hasFocus
+                    if (focused) report() else vm.imeAnchor = null
+                }
+        ) {
             if (text.isEmpty()) T("ASK ANYTHING…", fontSize, color = Muted, maxLines = 1)
             BasicTextField(
                 value = text,
