@@ -45,7 +45,6 @@
             android:name=".MainActivity"
             android:clearTaskOnLaunch="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|density|uiMode"
-            android:excludeFromRecents="true"
             android:exported="true"
             android:launchMode="singleTask"
             android:resizeableActivity="true"
