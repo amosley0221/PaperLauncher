@@ -68,6 +68,7 @@ import com.paperlauncher.data.BatteryInfo
 import com.paperlauncher.data.Calendars
 import com.paperlauncher.data.Device
 import com.paperlauncher.data.Media
+import com.paperlauncher.data.Shade
 import com.paperlauncher.data.SignalInfo
 import com.paperlauncher.data.Sports
 import com.paperlauncher.data.StorageInfo
@@ -282,7 +283,7 @@ private fun HomeScreen(vm: LauncherVM) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                         val slop = viewConfiguration.touchSlop
-                        var mode = 0 // 1 horizontal swipe, 2 swipe up, -1 other
+                        var mode = 0 // 1 horizontal swipe, 2 swipe up, 3 swipe down, -1 other
                         val timedOut = withTimeoutOrNull(500L) {
                             while (true) {
                                 val ev = awaitPointerEvent(PointerEventPass.Initial)
@@ -291,6 +292,7 @@ private fun HomeScreen(vm: LauncherVM) {
                                 val d = ch.position - down.position
                                 if (!editing && abs(d.x) > slop && abs(d.x) > abs(d.y)) { mode = 1; return@withTimeoutOrNull false }
                                 if (!editing && d.y < -slop && abs(d.y) > abs(d.x)) { mode = 2; return@withTimeoutOrNull false }
+                                if (!editing && d.y > slop && abs(d.y) > abs(d.x)) { mode = 3; return@withTimeoutOrNull false }
                                 if (d.getDistance() > slop) { mode = -1; return@withTimeoutOrNull false }
                             }
                             @Suppress("UNREACHABLE_CODE") false
@@ -304,7 +306,8 @@ private fun HomeScreen(vm: LauncherVM) {
                                 ev.changes.forEach { it.consume() }
                                 if (ev.changes.none { it.pressed }) break
                             }
-                        } else if (mode == 1 || mode == 2) {
+                        } else if (mode != 0 && !editing) {
+                            // Any drag outside edit mode belongs to us, so the widget underneath never treats it as a tap.
                             var last = down.position
                             while (true) {
                                 val ev = awaitPointerEvent(PointerEventPass.Initial)
@@ -315,7 +318,8 @@ private fun HomeScreen(vm: LauncherVM) {
                             }
                             val d = last - down.position
                             if (mode == 1 && abs(d.x) > swipeThreshold) goPage(page + if (d.x < 0) 1 else -1)
-                            if (mode == 2 && d.y < -upThreshold) vm.overlay = Overlay.APPS
+                            if (mode == 2 && d.y < -upThreshold) runGesture(vm, ctx, vm.settings.swipeUp)
+                            if (mode == 3 && d.y > upThreshold) runGesture(vm, ctx, vm.settings.swipeDown)
                         }
                     }
                 }
@@ -509,29 +513,41 @@ private fun WidgetFrame(
     }
 }
 
+/** Gesture actions selectable in Settings → Gestures. */
+val GestureActions = listOf(
+    "notifications" to "NOTIFICATIONS",
+    "quick_settings" to "QUICK SETTINGS",
+    "apps" to "ALL APPS",
+    "search" to "SEARCH",
+    "none" to "NOTHING",
+)
+
+fun runGesture(vm: LauncherVM, ctx: android.content.Context, action: String) {
+    when (action) {
+        "notifications" -> Shade.expand(ctx, quick = false)
+        "quick_settings" -> Shade.expand(ctx, quick = true)
+        "apps" -> vm.overlay = Overlay.APPS
+        "search" -> vm.overlay = Overlay.SEARCH
+        else -> {}
+    }
+}
+
 private fun onWidgetTap(vm: LauncherVM, ctx: android.content.Context, actions: Actions, w: Widget) {
     when (w.type) {
-        WType.CLOCK, WType.HERO -> Apps.start(ctx, Apps.clockIntent())
-        WType.DATE -> Apps.start(ctx, Apps.calendarIntent())
-        WType.CALENDAR -> if (!Calendars.hasPermission(ctx)) actions.requestCalendar() else Apps.start(ctx, Apps.calendarIntent())
+        WType.CLOCK, WType.HERO -> Apps.openClock(ctx)
+        WType.DATE -> Apps.openCalendar(ctx)
+        WType.CALENDAR -> if (!Calendars.hasPermission(ctx)) actions.requestCalendar() else Apps.openCalendar(ctx)
         WType.WEATHER -> if (!Weather.hasPermission(ctx)) actions.requestLocation() else vm.refreshWeather()
         WType.MUSIC -> if (!Media.hasAccess(ctx)) Media.requestAccess(ctx) else Media.openPlayer(ctx)
-        WType.BATTERY -> Apps.start(ctx, Intent(Intent.ACTION_POWER_USAGE_SUMMARY))
-        WType.STORAGE -> Apps.start(ctx, Intent(AndroidSettings.ACTION_INTERNAL_STORAGE_SETTINGS))
+        WType.BATTERY -> Apps.startAny(ctx, Intent(Intent.ACTION_POWER_USAGE_SUMMARY), Intent(AndroidSettings.ACTION_BATTERY_SAVER_SETTINGS), Intent(AndroidSettings.ACTION_SETTINGS))
+        WType.STORAGE -> Apps.startAny(ctx, Intent(AndroidSettings.ACTION_INTERNAL_STORAGE_SETTINGS), Intent(AndroidSettings.ACTION_SETTINGS))
         WType.SEARCH -> vm.overlay = Overlay.SEARCH
         WType.CAR -> when {
             vm.settings.tessieToken.isBlank() -> vm.overlay = Overlay.SETTINGS
             vm.car.data == null -> vm.refreshCar()
             else -> ctx.packageManager.getLaunchIntentForPackage("com.tessie.app")?.let { Apps.start(ctx, it) } ?: vm.refreshCar()
         }
-        WType.SPORTS -> {
-            val team = Sports.parse(vm.settings.sportsTeams)
-            when {
-                team == null -> vm.overlay = Overlay.SETTINGS
-                vm.sports.data == null -> vm.refreshSports()
-                else -> Apps.web(ctx, "https://www.espn.com/${team.first.lowercase()}/team/_/name/${team.second.lowercase()}")
-            }
-        }
+        WType.SPORTS -> Sports.openEspn(ctx, Sports.parse(vm.settings.sportsTeams).firstOrNull())
         WType.APPS, WType.PHOTO, WType.QUOTE, WType.ASK -> {}
     }
 }

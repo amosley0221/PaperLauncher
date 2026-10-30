@@ -151,6 +151,32 @@ object Apps {
 
     fun clockIntent(): Intent = Intent(AlarmClock.ACTION_SHOW_ALARMS)
 
+    private fun pkg(ctx: Context, vararg pkgs: String): Intent? =
+        pkgs.firstNotNullOfOrNull { ctx.packageManager.getLaunchIntentForPackage(it) }
+
+    fun openClock(ctx: Context) = startAny(
+        ctx, clockIntent(),
+        pkg(ctx, "com.sec.android.app.clockpackage", "com.google.android.deskclock", "com.android.deskclock"),
+    )
+
+    fun openCalendar(ctx: Context) = startAny(
+        ctx, calendarIntent(),
+        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR),
+        pkg(ctx, "com.samsung.android.calendar", "com.google.android.calendar", "com.microsoft.office.outlook"),
+    )
+
+    /** Tries each intent in turn; only complains if none of them can be opened. */
+    fun startAny(ctx: Context, vararg intents: Intent?): Boolean {
+        for (i in intents.filterNotNull()) {
+            val ok = try {
+                ctx.startActivity(Intent(i).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+            } catch (e: ActivityNotFoundException) { false } catch (e: SecurityException) { false }
+            if (ok) return true
+        }
+        toast(ctx, "NO APP FOR THIS")
+        return false
+    }
+
     fun start(ctx: Context, intent: Intent, fallbackToast: String = "NO APP FOR THIS"): Boolean = try {
         ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true

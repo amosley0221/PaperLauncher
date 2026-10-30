@@ -139,9 +139,11 @@ data class Settings(
     val iconSize: Int = 1, // 0 S, 1 M, 2 L
     val showAppNames: Boolean = false,
     val tessieToken: String = "",
-    val sportsTeams: String = "NBA:GSW",
+    val sportsTeams: String = "NBA:GS:9:GOLDEN STATE WARRIORS",
     val calendarIds: Set<Long> = emptySet(),
     val heroWeek: Boolean = true,
+    val swipeDown: String = "notifications",
+    val swipeUp: String = "apps",
     val mantra1: String = "KEEP IT SIMPLE",
     val mantra2: String = "GO OUTSIDE TODAY",
     val mantra3: String = "PLANT SOMETHING TODAY",
@@ -154,6 +156,7 @@ data class Settings(
         .put("hideStatusBar", hideStatusBar).put("iconSize", iconSize).put("showAppNames", showAppNames)
         .put("tessieToken", tessieToken).put("sportsTeams", sportsTeams)
         .put("calendarIds", JSONArray(calendarIds.toList())).put("heroWeek", heroWeek)
+        .put("swipeDown", swipeDown).put("swipeUp", swipeUp)
         .put("mantra1", mantra1).put("mantra2", mantra2).put("mantra3", mantra3)
         .put("caption", caption).put("quote", quote)
 
@@ -174,6 +177,8 @@ data class Settings(
                 sportsTeams = o.optString("sportsTeams", d.sportsTeams),
                 calendarIds = o.optJSONArray("calendarIds")?.let { a -> (0 until a.length()).map { a.getLong(it) }.toSet() } ?: emptySet(),
                 heroWeek = o.optBoolean("heroWeek", d.heroWeek),
+                swipeDown = o.optString("swipeDown", d.swipeDown),
+                swipeUp = o.optString("swipeUp", d.swipeUp),
                 mantra1 = o.optString("mantra1", d.mantra1),
                 mantra2 = o.optString("mantra2", d.mantra2),
                 mantra3 = o.optString("mantra3", d.mantra3),

@@ -238,7 +238,7 @@ fun QuoteWidget(vm: LauncherVM, size: Size) {
             Size.L -> {
                 T(if (s.heroWeek) n.week else n.day, 110f, Modifier.at(14.dp, (-8).dp), color = accent, lh = .8f)
                 TopRight(14.dp, 16.dp) { Caption(s.caption, 12f, 14f / 12f) }
-                Box(Modifier.align(Alignment.BottomStart).padding(16.dp)) { T(s.quote, 30f, lh = 1.05f) }
+                Box(Modifier.align(Alignment.BottomStart).padding(16.dp)) { T(s.quote, 30f, lh = 1.25f) }
             }
         }
     }

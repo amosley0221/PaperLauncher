@@ -2,6 +2,8 @@ package com.paperlauncher.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -74,7 +76,7 @@ private fun ButtonsRow(content: @Composable () -> Unit) {
 fun ConfirmDialog(message: String, onYes: () -> Unit, onNo: () -> Unit) {
     Sheet(onNo, maxWidth = 360.dp) {
         Header("CONFIRM", 36f, onNo)
-        T(message, 26f, Modifier.padding(12.dp), lh = 1.1f)
+        T(message, 26f, Modifier.padding(12.dp), lh = 1.25f)
         ButtonsRow {
             DialogButton("CANCEL", false, onClick = onNo)
             DialogButton("YES", true, onClick = onYes)
@@ -270,6 +272,89 @@ private fun HsvSlider(name: String, value: Float, onChange: (Float) -> Unit) {
             Box(Modifier.fillMaxWidth().height(14.dp).clip(pill).background(Track))
             Box(Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).height(14.dp).clip(pill).background(Ink))
             Box(Modifier.offset(x = (maxWidth - 4.dp) * value.coerceIn(0f, 1f)).size(4.dp, 36.dp).background(Ink))
+        }
+    }
+}
+
+// ---------- single choice ----------
+
+@Composable
+fun ChoiceDialog(title: String, options: List<Pair<String, String>>, selected: String, onPick: (String) -> Unit, onClose: () -> Unit) {
+    Sheet(onClose, maxWidth = 360.dp) {
+        Header(title, 36f, onClose)
+        Column(Modifier.padding(vertical = 8.dp)) {
+            options.forEach { (key, label) ->
+                CheckRow(label, "", key == selected) { onPick(key); onClose() }
+            }
+        }
+    }
+}
+
+// ---------- sports teams ----------
+
+@Composable
+fun SportsPicker(vm: LauncherVM, onClose: () -> Unit) {
+    val chosen = remember { mutableStateListOf<com.paperlauncher.data.TeamRef>().apply { addAll(com.paperlauncher.data.Sports.parse(vm.settings.sportsTeams)) } }
+    var league by remember { mutableStateOf(chosen.firstOrNull()?.league ?: "NBA") }
+    var filter by remember { mutableStateOf("") }
+    val accent = LocalAccent.current
+    val teams by produceState<List<com.paperlauncher.data.TeamRef>?>(null, league) {
+        value = null
+        value = runCatching { com.paperlauncher.data.Sports.teams(league) }.getOrDefault(emptyList())
+    }
+    fun isChosen(t: com.paperlauncher.data.TeamRef) = chosen.any { it.league == t.league && (it.id == t.id || (it.id.isEmpty() && t.abbr.isNotEmpty() && it.abbr.startsWith(t.abbr))) }
+    Sheet(onClose) {
+        Header("SPORTS TEAMS", 36f, onClose)
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Label(if (chosen.isEmpty()) "NO TEAMS YET · UP TO 4 · LIVE GAMES SHOW FIRST" else "FOLLOWING · TAP TO REMOVE", 10f, color = Muted, tracking = .12f)
+            if (chosen.isNotEmpty()) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    chosen.toList().forEach { t ->
+                        Box(Modifier.height(28.dp).background(Ink).tap { chosen.remove(t) }.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
+                            Label("${t.league} ${t.abbr} ×", 10f, color = Paper, tracking = .15f)
+                        }
+                    }
+                }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                com.paperlauncher.data.Sports.Leagues.forEach { l ->
+                    val sel = l.key == league
+                    Box(
+                        Modifier.height(28.dp).border(2.dp, if (sel) accent else Ink).background(if (sel) accent else Color.Transparent)
+                            .tap { league = l.key; filter = "" }.padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { Label(l.key, 10f, color = if (sel) Paper else Ink, tracking = .15f) }
+                }
+            }
+            Box {
+                if (filter.isEmpty()) T("FILTER TEAMS…", 20f, color = Muted, lh = 1.2f)
+                BasicTextField(
+                    value = filter, onValueChange = { filter = it }, singleLine = true,
+                    textStyle = textStyle(20f, FontWeight.Medium, Ink, lh = 1.2f),
+                    cursorBrush = SolidColor(accent), modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            HRule()
+        }
+        val list = teams
+        Box(Modifier.heightIn(min = 120.dp, max = 380.dp)) {
+            when {
+                list == null -> Label("LOADING $league TEAMS…", 10f, Modifier.padding(12.dp), color = Muted, tracking = .15f)
+                list.isEmpty() -> Label("COULDN'T LOAD TEAMS · CHECK CONNECTION", 10f, Modifier.padding(12.dp), color = Muted, tracking = .15f)
+                else -> LazyColumn {
+                    val q = filter.trim().uppercase()
+                    items(list.filter { q.isEmpty() || it.name.contains(q) || it.abbr.contains(q) }, key = { it.league + it.id }) { t ->
+                        CheckRow(t.name, t.abbr, isChosen(t)) {
+                            if (isChosen(t)) chosen.removeAll { c -> c.league == t.league && (c.id == t.id || c.id.isEmpty()) && (c.id.isNotEmpty() || c.abbr.startsWith(t.abbr)) }
+                            else if (chosen.size < 4) chosen.add(t)
+                        }
+                    }
+                }
+            }
+        }
+        ButtonsRow {
+            DialogButton("CANCEL", false, onClick = onClose)
+            DialogButton("SAVE", true) { vm.updateSettings { it.copy(sportsTeams = com.paperlauncher.data.Sports.encode(chosen)) }; onClose() }
         }
     }
 }

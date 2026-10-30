@@ -146,7 +146,7 @@ class LauncherVM(app: Application) : AndroidViewModel(app) {
     }
 
     fun refreshSports() = viewModelScope.launch {
-        if (Sports.parse(settings.sportsTeams) == null) { sports = Remote(error = "PICK A TEAM IN SETTINGS"); return@launch }
+        if (Sports.parse(settings.sportsTeams).isEmpty()) { sports = Remote(error = "PICK A TEAM IN SETTINGS"); return@launch }
         sports = sports.copy(loading = true)
         sports = runCatching { Sports.fetch(settings.sportsTeams) }.fold(
             { if (it == null) Remote(error = "NO DATA · TAP TO RETRY") else Remote(it, at = System.currentTimeMillis()) },

@@ -61,6 +61,7 @@ import com.paperlauncher.data.AppInfo
 import com.paperlauncher.data.Apps
 import com.paperlauncher.data.Calendars
 import com.paperlauncher.data.Media
+import com.paperlauncher.data.Sports
 import com.paperlauncher.data.Weather
 import com.paperlauncher.data.toast
 import com.paperlauncher.model.Size
@@ -135,6 +136,8 @@ fun SettingsScreen(vm: LauncherVM) {
     val s = vm.settings
     var textEdit by remember { mutableStateOf<TextEdit?>(null) }
     var calendarsOpen by remember { mutableStateOf(false) }
+    var sportsOpen by remember { mutableStateOf(false) }
+    var gesture by remember { mutableStateOf<String?>(null) }
     PaperPage {
         Header("SETTINGS", 50f) { vm.overlay = Overlay.NONE }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
@@ -154,11 +157,8 @@ fun SettingsScreen(vm: LauncherVM) {
                     vm.updateSettings { it.copy(tessieToken = v.trim()) }
                 }
             }
-            SettingRow("SPORTS TEAMS", s.sportsTeams.ifBlank { "NONE" }) {
-                textEdit = TextEdit("SPORTS TEAMS", s.sportsTeams, "LEAGUE:TEAM — E.G. NBA:GSW, NFL:SF, EPL:ARS. LEAGUES: NBA WNBA NFL MLB NHL MLS EPL LALIGA NCAAF NCAAB") { v ->
-                    vm.updateSettings { it.copy(sportsTeams = v.trim().uppercase()) }
-                }
-            }
+            val teams = Sports.parse(s.sportsTeams)
+            SettingRow("SPORTS TEAMS", if (teams.isEmpty()) "PICK TEAMS" else teams.joinToString { it.abbr }) { sportsOpen = true }
             SettingRow("CALENDARS", if (!Calendars.hasPermission(ctx)) "TAP TO ALLOW" else if (s.calendarIds.isEmpty()) "ALL" else "${s.calendarIds.size} SELECTED") {
                 if (Calendars.hasPermission(ctx)) calendarsOpen = true else actions.requestCalendar()
             }
@@ -183,6 +183,13 @@ fun SettingsScreen(vm: LauncherVM) {
             SettingRow("CORNER ROUNDING", if (s.rounded) "ROUNDED" else "SQUARE") { vm.updateSettings { it.copy(rounded = !it.rounded) } }
             SettingRow("APP NAMES ON HOME", if (s.showAppNames) "SHOWN" else "HIDDEN") { vm.updateSettings { it.copy(showAppNames = !it.showAppNames) } }
 
+            GroupLabel("GESTURES")
+            fun gestureLabel(k: String) = GestureActions.firstOrNull { it.first == k }?.second ?: "NOTHING"
+            SettingRow("SWIPE DOWN", gestureLabel(s.swipeDown)) { gesture = "down" }
+            SettingRow("SWIPE UP", gestureLabel(s.swipeUp)) { gesture = "up" }
+            SettingRow("LONG-PRESS", "EDIT HOME")
+            SettingRow("SWIPE LEFT / RIGHT", "CHANGE PAGE")
+
             GroupLabel("WORDS")
             @Composable
             fun words(title: String, v: String, set: (String) -> Unit) = SettingRow(title, v) {
@@ -204,6 +211,16 @@ fun SettingsScreen(vm: LauncherVM) {
     }
     textEdit?.let { e -> TextInputDialog(e) { textEdit = null } }
     if (calendarsOpen) CalendarPicker(vm) { calendarsOpen = false }
+    if (sportsOpen) SportsPicker(vm) { sportsOpen = false }
+    gesture?.let { which ->
+        ChoiceDialog(
+            if (which == "down") "SWIPE DOWN" else "SWIPE UP",
+            GestureActions,
+            if (which == "down") s.swipeDown else s.swipeUp,
+            onPick = { k -> vm.updateSettings { if (which == "down") it.copy(swipeDown = k) else it.copy(swipeUp = k) } },
+            onClose = { gesture = null },
+        )
+    }
 }
 
 // ---------- add widget ----------

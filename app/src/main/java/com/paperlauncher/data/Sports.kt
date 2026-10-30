@@ -1,5 +1,6 @@
 package com.paperlauncher.data
 
+import android.content.Context
 import org.json.JSONObject
 import java.time.Instant
 import java.time.ZoneId
@@ -16,26 +17,81 @@ data class Game(
     val other: Side,
     val venue: String,
     val tv: String,
+    val start: Long,
 )
 
-data class Fixture(val text: String, val time: String)
+data class Fixture(val text: String, val time: String, val at: Long)
 
-data class SportsData(val game: Game?, val next: List<Fixture>, val team: String, val updatedAt: Long) {
+data class SportsData(val game: Game?, val next: List<Fixture>, val updatedAt: Long) {
     val live get() = game?.state == "in"
 }
 
+/** A followed team. Stored as "LEAGUE:ABBR:ID:NAME"; [id] is ESPN's team id. */
+data class TeamRef(val league: String, val abbr: String, val id: String, val name: String) {
+    fun encode() = "$league:$abbr:$id:$name"
+}
+
+data class League(val key: String, val path: String, val espnWeb: String)
+
 object Sports {
-    private val Leagues = mapOf(
-        "NBA" to "basketball/nba", "WNBA" to "basketball/wnba", "NFL" to "football/nfl",
-        "MLB" to "baseball/mlb", "NHL" to "hockey/nhl", "MLS" to "soccer/usa.1", "EPL" to "soccer/eng.1",
-        "LALIGA" to "soccer/esp.1", "NCAAF" to "football/college-football", "NCAAB" to "basketball/mens-college-basketball",
+    val Leagues = listOf(
+        League("NBA", "basketball/nba", "nba"),
+        League("NFL", "football/nfl", "nfl"),
+        League("MLB", "baseball/mlb", "mlb"),
+        League("NHL", "hockey/nhl", "nhl"),
+        League("WNBA", "basketball/wnba", "wnba"),
+        League("MLS", "soccer/usa.1", "soccer"),
+        League("EPL", "soccer/eng.1", "soccer"),
+        League("LALIGA", "soccer/esp.1", "soccer"),
+        League("NCAAF", "football/college-football", "college-football"),
+        League("NCAAB", "basketball/mens-college-basketball", "mens-college-basketball"),
     )
 
-    /** "NBA:GSW, NFL:SF" → first entry. */
-    fun parse(teams: String): Pair<String, String>? {
-        val first = teams.split(',').map { it.trim() }.firstOrNull { it.contains(':') } ?: return null
-        val (l, t) = first.split(':', limit = 2).map { it.trim().uppercase() }
-        return if (Leagues.containsKey(l) && t.isNotEmpty()) l to t else null
+    private fun league(key: String) = Leagues.firstOrNull { it.key == key }
+    private fun base(l: League) = "https://site.api.espn.com/apis/site/v2/sports/${l.path}"
+
+    /** Parses "NBA:GS:9:WARRIORS, NFL:SF:25:49ERS" (older "NBA:GSW" entries still load). */
+    fun parse(s: String): List<TeamRef> = s.split(',').mapNotNull { e ->
+        val p = e.trim().split(':')
+        if (p.size < 2 || league(p[0].uppercase()) == null || p[1].isBlank()) null
+        else TeamRef(p[0].uppercase(), p[1].uppercase(), p.getOrElse(2) { "" }, p.getOrElse(3) { p[1] }.uppercase())
+    }
+
+    fun encode(teams: List<TeamRef>) = teams.joinToString(",") { it.encode() }
+
+    /** All teams in a league, for the picker. */
+    suspend fun teams(leagueKey: String): List<TeamRef> {
+        val l = league(leagueKey) ?: return emptyList()
+        val j = Http.json("${base(l)}/teams?limit=1000")
+        val arr = j.optJSONArray("sports")?.optJSONObject(0)?.optJSONArray("leagues")?.optJSONObject(0)?.optJSONArray("teams")
+            ?: return emptyList()
+        return List(arr.length()) { arr.getJSONObject(it).optJSONObject("team") ?: JSONObject() }
+            .filter { it.optString("id").isNotEmpty() }
+            .map {
+                TeamRef(
+                    l.key, it.optString("abbreviation").uppercase(), it.optString("id"),
+                    it.optString("displayName").ifEmpty { it.optString("name") }.uppercase(),
+                )
+            }
+            .sortedBy { it.name }
+    }
+
+    fun openEspn(ctx: Context, team: TeamRef?) {
+        ctx.packageManager.getLaunchIntentForPackage("com.espn.score_center")?.let { if (Apps.start(ctx, it)) return }
+        val l = team?.let { league(it.league) }
+        val url = when {
+            team == null || l == null -> "https://www.espn.com/"
+            team.id.isNotEmpty() && l.espnWeb != "soccer" -> "https://www.espn.com/${l.espnWeb}/team/_/id/${team.id}"
+            else -> "https://www.espn.com/${l.espnWeb}/"
+        }
+        Apps.web(ctx, url)
+    }
+
+    private fun isMine(c: JSONObject, t: TeamRef): Boolean {
+        val team = c.optJSONObject("team") ?: return false
+        if (t.id.isNotEmpty()) return team.optString("id") == t.id || c.optString("id") == t.id
+        val abbr = team.optString("abbreviation")
+        return abbr.equals(t.abbr, true) || (abbr.length >= 2 && t.abbr.startsWith(abbr, true))
     }
 
     private fun side(c: JSONObject): Side {
@@ -55,59 +111,80 @@ object Sports {
         )
     }
 
-    private fun game(league: String, team: String, e: JSONObject): Game? {
+    private fun instant(s: String): Instant? = runCatching {
+        Instant.parse(if (s.length == 17 && s.endsWith("Z")) s.dropLast(1) + ":00Z" else s)
+    }.getOrNull()
+
+    private fun game(t: TeamRef, e: JSONObject): Game? {
         val comp = e.optJSONArray("competitions")?.optJSONObject(0) ?: return null
         val cs = comp.optJSONArray("competitors") ?: return null
         val sides = List(cs.length()) { cs.getJSONObject(it) }
-        val mineJ = sides.firstOrNull { it.optJSONObject("team")?.optString("abbreviation").equals(team, true) } ?: return null
+        val mineJ = sides.firstOrNull { isMine(it, t) } ?: return null
         val otherJ = sides.firstOrNull { it !== mineJ } ?: return null
         val status = (comp.optJSONObject("status") ?: e.optJSONObject("status"))?.optJSONObject("type")
-        val state = status?.optString("state") ?: "pre"
+        val state = status?.optString("state")?.ifEmpty { null } ?: "pre"
         val detail = (status?.optString("shortDetail") ?: "").uppercase().replace(" - ", " · ")
         val tv = comp.optJSONArray("broadcasts")?.optJSONObject(0)?.let { b ->
             b.optJSONArray("names")?.optString(0) ?: b.optJSONObject("media")?.optString("shortName")
         } ?: ""
         return Game(
-            league, state, detail, side(mineJ), side(otherJ),
+            t.league, state, detail, side(mineJ), side(otherJ),
             comp.optJSONObject("venue")?.optString("fullName")?.uppercase() ?: "", tv.uppercase(),
+            instant(e.optString("date"))?.toEpochMilli() ?: 0L,
         )
     }
 
-    suspend fun fetch(teams: String): SportsData? {
-        val (league, team) = parse(teams) ?: return null
-        val path = Leagues.getValue(league)
-        val base = "https://site.api.espn.com/apis/site/v2/sports/$path"
-        val board = runCatching { Http.json("$base/scoreboard") }.getOrNull()
-        var g: Game? = null
-        board?.optJSONArray("events")?.let { ev ->
+    private class TeamResult(val today: Game?, val last: Game?, val next: List<Fixture>)
+
+    private suspend fun fetchTeam(ref: TeamRef, multi: Boolean): TeamResult {
+        val l = league(ref.league) ?: return TeamResult(null, null, emptyList())
+        // Older settings stored only an abbreviation (e.g. GSW); resolve it to ESPN's id (GS = 9).
+        val t = if (ref.id.isNotEmpty()) ref else runCatching { teams(ref.league) }.getOrDefault(emptyList()).firstOrNull {
+            it.abbr == ref.abbr || ref.abbr.startsWith(it.abbr)
+        } ?: ref
+        val base = base(l)
+        var today: Game? = null
+        runCatching { Http.json("$base/scoreboard") }.getOrNull()?.optJSONArray("events")?.let { ev ->
             for (i in 0 until ev.length()) {
-                g = game(league, team, ev.getJSONObject(i)) ?: continue
-                break
+                val g = game(t, ev.getJSONObject(i))
+                if (g != null) { today = g; break }
             }
         }
-        val sched = runCatching { Http.json("$base/teams/${team.lowercase()}/schedule") }.getOrNull()
+        val teamKey = t.id.ifEmpty { t.abbr.lowercase() }
+        var last: Game? = null
         val next = mutableListOf<Fixture>()
-        var lastPlayed: Game? = null
         val zone = ZoneId.systemDefault()
         val dayFmt = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
         val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
-        sched?.optJSONArray("events")?.let { ev ->
+        val now = System.currentTimeMillis()
+        runCatching { Http.json("$base/teams/$teamKey/schedule") }.getOrNull()?.optJSONArray("events")?.let { ev ->
             for (i in 0 until ev.length()) {
                 val e = ev.getJSONObject(i)
-                val gm = game(league, team, e) ?: continue
-                if (gm.state == "post") lastPlayed = gm
-                if (gm.state == "pre" && next.size < 2) {
+                val g = game(t, e) ?: continue
+                if (g.state == "post" && (last?.start ?: 0L) <= g.start) last = g
+                if (g.state == "pre" && g.start >= now - 3 * 3_600_000L) {
                     val home = e.optJSONArray("competitions")?.optJSONObject(0)?.optJSONArray("competitors")?.let { cs ->
-                        (0 until cs.length()).map { cs.getJSONObject(it) }.firstOrNull { c ->
-                            c.optJSONObject("team")?.optString("abbreviation").equals(team, true)
-                        }?.optString("homeAway") == "home"
+                        (0 until cs.length()).map { cs.getJSONObject(it) }.firstOrNull { isMine(it, t) }?.optString("homeAway") == "home"
                     } ?: true
-                    val t = runCatching { Instant.parse(e.optString("date").let { if (it.length == 17) it.dropLast(1) + ":00Z" else it }).atZone(zone) }.getOrNull()
-                    val day = t?.format(dayFmt)?.uppercase() ?: ""
-                    next += Fixture("$day · ${if (home) "VS" else "@"} ${gm.other.abbr}", t?.format(timeFmt) ?: "")
+                    val at = Instant.ofEpochMilli(g.start).atZone(zone)
+                    val who = if (multi) "${g.mine.abbr} " else ""
+                    next += Fixture("${at.format(dayFmt).uppercase()} · $who${if (home) "VS" else "@"} ${g.other.abbr}", at.format(timeFmt), g.start)
                 }
             }
         }
-        return SportsData(g ?: lastPlayed, next, team, System.currentTimeMillis())
+        return TeamResult(today, last, next.sortedBy { it.at }.take(3))
+    }
+
+    suspend fun fetch(teams: String): SportsData? {
+        val list = parse(teams).take(4)
+        if (list.isEmpty()) return null
+        val results = list.map { fetchTeam(it, list.size > 1) }
+        val todays = results.mapNotNull { it.today }
+        val game = todays.firstOrNull { it.state == "in" }
+            ?: todays.firstOrNull { it.state == "pre" }
+            ?: todays.firstOrNull()
+            ?: results.mapNotNull { it.last }.maxByOrNull { it.start }
+        val next = results.flatMap { it.next }.sortedBy { it.at }.take(2)
+        return SportsData(game, next, System.currentTimeMillis())
     }
 }

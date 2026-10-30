@@ -5,6 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
@@ -73,6 +76,27 @@ fun T(
     maxLines: Int = Int.MAX_VALUE,
     ellipsis: Boolean = false,
 ) {
+    if ('\n' !in text && (maxLines == 1 || lh <= 1.2f)) {
+        // CSS line box: exactly size × lh tall with the glyphs centred, even when lh is tighter
+        // than the font's own height (Compose won't shrink a single line below it).
+        val box = with(LocalDensity.current) { (size * lh).sp.toDp() }
+        val alignment = when (align) {
+            TextAlign.End, TextAlign.Right -> Alignment.CenterEnd
+            TextAlign.Center -> Alignment.Center
+            else -> Alignment.CenterStart
+        }
+        Box(modifier.height(box), contentAlignment = alignment) {
+            androidx.compose.foundation.text.BasicText(
+                text = text,
+                modifier = Modifier.wrapContentHeight(unbounded = true),
+                style = textStyle(size, weight, color, tracking, lh, align).copy(lineHeight = TextUnit.Unspecified, lineHeightStyle = null),
+                maxLines = 1,
+                softWrap = false,
+                overflow = if (ellipsis) TextOverflow.Ellipsis else TextOverflow.Clip,
+            )
+        }
+        return
+    }
     androidx.compose.foundation.text.BasicText(
         text = text,
         modifier = modifier,
