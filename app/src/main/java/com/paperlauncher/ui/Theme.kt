@@ -37,14 +37,14 @@ val Scrim = Color(0xC746433C)
 val DefaultAccent = Color(0xFF7A1F2E)
 val AccentPresets = listOf(
     "Burgundy" to 0xFF7A1F2E, "Teal" to 0xFF1E8A82, "Gold" to 0xFFD9A21B,
-    "Red" to 0xFFD3312A, "Cobalt" to 0xFF1E4FB8, "Olive" to 0xFF6B8E23,
+    "Red" to 0xFFD3312A, "Cobalt" to 0xFF1E4FB8, "Olive" to 0xFF6B8E23, "Navy" to 0xFF1B2A4A,
 )
 
 /** Swatches shown in the accent dialog (6-column grid). */
 val AccentSwatches = listOf(
     0xFF7A1F2E, 0xFFD3312A, 0xFFE0672A, 0xFFD9A21B, 0xFF6B8E23, 0xFF2E8B57,
     0xFF1E8A82, 0xFF1E4FB8, 0xFF3E3A9E, 0xFF7B2D8E, 0xFFD6478A, 0xFF7A4A1F,
-    0xFF46433C,
+    0xFF1B2A4A, 0xFF46433C,
 )
 
 val Oswald = FontFamily(
