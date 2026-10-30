@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 108dp adaptive canvas; safe zone is the central 66dp. Ink frame, "12" over accent "21". -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#1D1C1A"
+        android:strokeWidth="3"
+        android:pathData="M30,30 L78,30 L78,78 L30,78 Z" />
+    <!-- upper bar: ink -->
+    <path
+        android:fillColor="#1D1C1A"
+        android:pathData="M38,39 L70,39 L70,51 L38,51 Z" />
+    <!-- lower bar: accent -->
+    <path
+        android:fillColor="#7A1F2E"
+        android:pathData="M38,57 L70,57 L70,69 L38,69 Z" />
+</vector>

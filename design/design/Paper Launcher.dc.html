@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0&display=block" rel="stylesheet">
+<style>body{margin:0;background:#5B5750} a,a:hover{color:#1D1C1A}</style>
+</helmet>
+<div style="--accent:{{ accentHex }};--r:{{ radiusPx }};display:flex;flex-direction:column;gap:56px;padding:48px;background:#5B5750;min-width:max-content;font-family:Oswald,sans-serif;color:#1D1C1A">
+ <div style="display:flex;gap:48px;align-items:flex-start">
+  <sc-for list="{{ screens }}" as="s" hint-placeholder-count="4">
+   <div style="display:flex;flex-direction:column;gap:12px;flex:none">
+    <div style="display:flex;align-items:center;gap:14px;color:#EDE7D9;font-size:12px;font-weight:600;letter-spacing:.25em;height:28px">
+     <span>{{ s.label }}</span><span style="color:#B8B2A4;letter-spacing:.1em">{{ s.meta }}</span>
+     <sc-if value="{{ s.notEditing }}" hint-placeholder-val="{{ true }}"><button onClick="{{ s.onEdit }}" style="margin-left:auto;background:none;border:2px solid #EDE7D9;color:#EDE7D9;font:600 11px Oswald,sans-serif;letter-spacing:.2em;padding:5px 12px;cursor:pointer">EDIT</button></sc-if>
+     <sc-if value="{{ s.editing }}" hint-placeholder-val="{{ false }}"><button onClick="{{ s.onOpenSheet }}" style="margin-left:auto;background:none;border:2px solid var(--accent);color:var(--accent);font:600 11px Oswald,sans-serif;letter-spacing:.2em;padding:5px 12px;cursor:pointer">+ ADD WIDGET</button><button onClick="{{ s.onDone }}" style="background:#EDE7D9;border:2px solid #EDE7D9;color:#1D1C1A;font:600 11px Oswald,sans-serif;letter-spacing:.2em;padding:5px 12px;cursor:pointer">DONE</button></sc-if>
+    </div>
+    <div data-screen-label="{{ s.label }}" style="position:relative;width:{{ s.wPx }};height:{{ s.hPx }};background:#EDE7D9;overflow:hidden;display:grid;grid-template-columns:{{ s.gridCols }};grid-auto-rows:{{ s.cellPx }};gap:8px;padding:12px 12px 36px;align-content:start;box-sizing:border-box;touch-action:pan-y" onPointerDown="{{ s.onSwipeDown }}" onPointerUp="{{ s.onSwipeUp }}">
+     <div style="position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:10px;z-index:10;pointer-events:none"><sc-for list="{{ s.dots }}" as="d" hint-placeholder-count="2"><sc-if value="{{ d.on }}" hint-placeholder-val="{{ true }}"><span onClick="{{ d.onClick }}" style="width:8px;height:8px;background:#1D1C1A;pointer-events:auto;cursor:pointer"></span></sc-if><sc-if value="{{ d.off }}" hint-placeholder-val="{{ false }}"><span onClick="{{ d.onClick }}" style="width:8px;height:8px;border:2px solid #1D1C1A;box-sizing:border-box;pointer-events:auto;cursor:pointer"></span></sc-if></sc-for></div>
+     <sc-for list="{{ s.widgets }}" as="w" hint-placeholder-count="8">
+      <div style="grid-column:{{ w.gc }};grid-row:{{ w.gr }};position:relative;border:2px solid #1D1C1A;border-radius:var(--r);background:#EDE7D9;overflow:hidden;touch-action:none;user-select:none;box-shadow:{{ w.shadow }};z-index:{{ w.z }};cursor:{{ w.cursor }}" onPointerDown="{{ w.onDown }}" onPointerMove="{{ w.onMove }}" onPointerUp="{{ w.onUp }}" onPointerCancel="{{ w.onUp }}">
+       <div style="position:absolute;inset:0"><dc-import name="Widget" type="{{ w.type }}" size="{{ w.size }}" agent="{{ w.agent }}" apps="{{ w.apps }}" slot-id="{{ w.slotId }}" hint-size="100%,100%"></dc-import></div>
+       <sc-if value="{{ s.editing }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;background:rgba(237,231,217,.25);pointer-events:none"></div>
+        <div style="position:absolute;left:8px;top:6px;font-size:9px;font-weight:600;letter-spacing:.2em;color:var(--accent);pointer-events:none">{{ w.badge }}</div>
+        <button onPointerDown="{{ w.stop }}" onClick="{{ w.onRemove }}" style="position:absolute;right:6px;top:6px;width:24px;height:24px;border:2px solid #1D1C1A;background:#EDE7D9;color:#1D1C1A;font:600 14px Oswald,sans-serif;line-height:1;cursor:pointer;padding:0">×</button>
+        <div onPointerDown="{{ w.onResizeDown }}" style="position:absolute;right:0;bottom:0;width:26px;height:26px;background:var(--accent);cursor:nwse-resize;clip-path:polygon(100% 0,100% 100%,0 100%)"></div>
+       </sc-if>
+      </div>
+     </sc-for>
+     <sc-if value="{{ s.sheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:rgba(70,67,60,.78);z-index:20" onClick="{{ s.onCloseSheet }}"></div>
+      <div style="position:absolute;left:24px;right:24px;top:40px;bottom:40px;background:#EDE7D9;border:2px solid #1D1C1A;z-index:21;display:flex;flex-direction:column;overflow:hidden">
+       <div style="display:flex;align-items:center;padding:0 16px;height:60px;border-bottom:2px solid #1D1C1A;flex:none"><span style="font-size:36px;font-weight:500;line-height:1">ADD WIDGET</span><button onClick="{{ s.onCloseSheet }}" style="margin-left:auto;background:none;border:0;color:var(--accent);font-family:'Material Symbols Rounded';font-size:26px;cursor:pointer;padding:0">close</button></div>
+       <div style="flex:1;overflow:auto;padding:8px 16px 16px">
+        <sc-for list="{{ s.types }}" as="t" hint-placeholder-count="10">
+         <div style="display:flex;align-items:center;height:52px;gap:8px"><span style="font-size:26px;font-weight:500;line-height:1">{{ t.name }}</span><span style="font-size:10px;font-weight:600;letter-spacing:.15em;color:#5A5650;margin-left:4px">{{ t.spans }}</span>
+          <button onClick="{{ t.addS }}" style="margin-left:auto;border:2px solid #1D1C1A;background:none;color:#1D1C1A;font:600 11px Oswald,sans-serif;letter-spacing:.15em;padding:5px 10px;cursor:pointer">S</button><button onClick="{{ t.addM }}" style="border:2px solid #1D1C1A;background:none;color:#1D1C1A;font:600 11px Oswald,sans-serif;letter-spacing:.15em;padding:5px 10px;cursor:pointer">M</button><button onClick="{{ t.addL }}" style="border:2px solid #1D1C1A;background:none;color:#1D1C1A;font:600 11px Oswald,sans-serif;letter-spacing:.15em;padding:5px 10px;cursor:pointer">L</button></div>
+        </sc-for>
+       </div>
+      </div>
+     </sc-if>
+    </div>
+    <div style="color:#B8B2A4;font-size:10px;font-weight:600;letter-spacing:.2em">LONG-PRESS TO EDIT · DRAG TO MOVE · CORNER TO RESIZE · SWIPE OR TAP SQUARES FOR PAGES</div>
+   </div>
+  </sc-for>
+ </div>
+ <sc-if value="{{ showGallery }}" hint-placeholder-val="{{ true }}">
+ <div style="display:flex;flex-direction:column;gap:20px">
+  <div style="color:#EDE7D9;font-size:12px;font-weight:600;letter-spacing:.25em">WIDGET VARIATIONS · S / M / L · 88 PX CELLS · SIZE FOLLOWS SPAN</div>
+  <sc-for list="{{ gallery }}" as="g" hint-placeholder-count="10">
+   <div style="display:flex;gap:28px;align-items:flex-end">
+    <div style="width:110px;color:#EDE7D9;font-size:22px;font-weight:500;line-height:1;flex:none;padding-bottom:4px">{{ g.name }}</div>
+    <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+     <div style="display:flex;flex-direction:column;gap:8px;flex:none">
+      <div style="color:#B8B2A4;font-size:10px;font-weight:600;letter-spacing:.2em">{{ it.label }}</div>
+      <div style="position:relative;width:{{ it.wPx }};height:{{ it.hPx }};border:2px solid #1D1C1A;border-radius:var(--r);background:#EDE7D9;overflow:hidden"><div style="position:absolute;inset:0"><dc-import name="Widget" type="{{ g.type }}" size="{{ it.size }}" slot-id="{{ it.slotId }}" hint-size="100%,100%"></dc-import></div></div>
+     </div>
+    </sc-for>
+   </div>
+  </sc-for>
+ </div>
+ </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;innerLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Hero left&quot;,&quot;options&quot;:[&quot;Hero left&quot;,&quot;Widget grid&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Fold inner&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Burgundy&quot;,&quot;options&quot;:[&quot;Burgundy&quot;,&quot;Teal&quot;,&quot;Gold&quot;,&quot;Red&quot;,&quot;Cobalt&quot;,&quot;Olive&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;cornerRounding&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Square&quot;,&quot;options&quot;:[&quot;Square&quot;,&quot;Rounded&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;showGallery&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Canvas&quot;}}">
+const TYPES = ['hero','clock','date','weather','music','photo','battery','storage','calendar','search','apps','car','sports','ask'];
+const MIN = { hero:{S:[4,4],M:[4,6],L:[4,8]}, clock:{S:[2,1],M:[2,2],L:[4,2]}, date:{S:[2,1],M:[1,2],L:[2,2]}, weather:{S:[2,1],M:[4,1],L:[4,3]}, music:{S:[2,1],M:[4,1],L:[4,2]}, photo:{S:[4,1],M:[4,2],L:[8,3]}, battery:{S:[2,1],M:[4,1],L:[2,2]}, storage:{S:[2,1],M:[4,1],L:[4,2]}, calendar:{S:[2,1],M:[4,2],L:[4,3]}, search:{S:[2,1],M:[4,1],L:[8,1]}, apps:{S:[1,1],M:[2,1],L:[2,2]}, car:{S:[2,1],M:[4,1],L:[4,3]}, sports:{S:[2,1],M:[4,1],L:[4,3]}, ask:{S:[2,1],M:[4,1],L:[4,2]} };
+const SCREENS = [
+  { key:'inner', label:'FOLD INNER', meta:'775 × 930 DP · 8 COL', w:775, h:930, cols:8 },
+  { key:'cover', label:'FOLD COVER', meta:'386 × 990 DP · 4 COL', w:386, h:990, cols:4 },
+  { key:'tabL', label:'TABLET LANDSCAPE', meta:'1280 × 800 DP · 12 COL', w:1280, h:800, cols:12 },
+  { key:'tabP', label:'TABLET PORTRAIT', meta:'800 × 1280 DP · 8 COL', w:800, h:1280, cols:8 },
+];
+const W = (type, col, row, w, h, cfg) => ({ type, col, row, w, h, ...(cfg || {}) });
+const DEFAULTS = {
+  innerHero: [W('hero',1,1,4,9), W('weather',5,1,4,3), W('battery',5,4,4,1), W('storage',5,5,4,1), W('car',5,6,4,1), W('calendar',5,7,4,2), W('sports',5,9,2,1), W('apps',7,9,2,1,{apps:'phone,messages'}),
+    W('hero',1,1,4,9,{page:1}), W('ask',5,1,4,2,{page:1}), W('ask',5,3,4,1,{page:1,agent:'claude'}), W('ask',5,4,4,1,{page:1,agent:'grok'}), W('ask',5,5,4,1,{page:1,agent:'codex'}), W('music',5,6,4,1,{page:1}), W('apps',5,7,4,2,{page:1,apps:'browser,mail,maps,settings,calendar,music'})],
+  innerGrid: [W('clock',1,1,4,2), W('date',5,1,2,2), W('battery',7,1,2,2), W('photo',1,3,4,3), W('weather',5,3,4,3), W('music',1,6,4,1), W('storage',5,6,4,1), W('calendar',1,7,4,2), W('search',5,7,4,1), W('apps',5,8,2,2), W('apps',7,8,2,2), W('photo',1,9,4,1)],
+  cover: [W('clock',1,1,2,2), W('date',3,1,2,2), W('photo',1,3,4,2), W('weather',1,5,4,1), W('battery',1,6,4,1), W('storage',1,7,4,1), W('music',1,8,4,1), W('search',1,9,4,1), W('apps',1,10,2,1), W('apps',3,10,2,1)],
+  tabL: [W('clock',1,1,4,2), W('date',5,1,2,2), W('photo',7,1,6,3), W('weather',1,3,4,3), W('battery',5,3,2,2), W('storage',7,4,4,1), W('apps',11,4,2,1), W('music',5,5,4,1), W('calendar',9,5,4,3), W('search',1,6,8,1), W('apps',1,7,2,1), W('apps',3,7,2,1), W('photo',5,7,4,1)],
+  tabP: [W('clock',1,1,4,2), W('date',5,1,2,2), W('battery',7,1,2,2), W('photo',1,3,8,3), W('weather',1,6,4,3), W('calendar',5,6,4,3), W('music',1,9,4,1), W('storage',5,9,4,1), W('search',1,10,8,1), W('apps',1,11,2,2), W('apps',3,11,2,2), W('apps',5,11,2,2), W('calendar',7,11,2,1), W('date',7,12,2,1)],
+};
+const ACCENTS = { Burgundy:'#7A1F2E', Teal:'#1E8A82', Gold:'#D9A21B', Red:'#D3312A', Cobalt:'#1E4FB8', Olive:'#6B8E23' };
+const LS = 'paper-launcher.layouts.v5';
+const sizeFor = (t, w, h) => { const m = MIN[t]; return (w >= m.L[0] && h >= m.L[1]) ? 'L' : (w >= m.M[0] && h >= m.M[1]) ? 'M' : 'S'; };
+const hits = (a, b) => (a.page || 0) === (b.page || 0) && a.col < b.col + b.w && b.col < a.col + a.w && a.row < b.row + b.h && b.row < a.row + a.h;
+
+class Component extends DCLogic {
+  state = { layouts: this.load(), edit: null, sheet: null, dragId: null, page: {} };
+  pageOf(key) { return this.state.page[key] || 0; }
+  pageCount(key) { return Math.max(1, ...this.state.layouts[key].map(w => (w.page || 0) + 1)) + (this.state.edit === key ? 1 : 0); }
+  setPage(key, p) { this.setState(st => ({ page: { ...st.page, [key]: Math.max(0, Math.min(this.pageCount(key) - 1, p)) } })); }
+  swipeDown(e, s) { if (this.state.edit === s.key || e.target !== e.currentTarget) return; this.sw = { x: e.clientX, key: s.key }; }
+  swipeUp(e) { const sw = this.sw; this.sw = null; if (!sw) return; const dx = e.clientX - sw.x; if (Math.abs(dx) > 60) this.setPage(sw.key, this.pageOf(sw.key) + (dx < 0 ? 1 : -1)); }
+  load() {
+    let saved = null; try { saved = JSON.parse(localStorage.getItem(LS)); } catch (e) {}
+    const out = {}; let n = 0;
+    Object.keys(DEFAULTS).forEach(k => { out[k] = (saved && saved[k]) || DEFAULTS[k].map(w => ({ ...w, id: 'w' + (++n) })); });
+    return out;
+  }
+  persist(layouts) { try { localStorage.setItem(LS, JSON.stringify(layouts)); } catch (e) {} }
+  cell(s) { return (s.w - 24 - 8 * (s.cols - 1)) / s.cols; }
+  update(key, fn) {
+    this.setState(st => { const layouts = { ...st.layouts, [key]: fn(st.layouts[key]) }; this.persist(layouts); return { layouts }; });
+  }
+  down(e, s, id, mode) {
+    const el = e.currentTarget; if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
+    if (mode === 'resize') e.stopPropagation();
+    const w = this.state.layouts[s.key].find(x => x.id === id);
+    const scale = el.getBoundingClientRect().width / (el.offsetWidth || 1);
+    this.ptr = { s, id, mode, x: e.clientX, y: e.clientY, orig: { ...w }, step: (this.cell(s) + 8) * scale, moved: false, active: this.state.edit === s.key };
+    clearTimeout(this.lp);
+    if (!this.ptr.active) this.lp = setTimeout(() => { if (this.ptr) { this.ptr.active = true; this.setState({ edit: s.key }); } }, 500);
+  }
+  move(e) {
+    const p = this.ptr; if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    if (Math.abs(dx) + Math.abs(dy) > 8) { clearTimeout(this.lp); p.moved = true; }
+    if (!p.active || !p.moved) return;
+    const dc = Math.round(dx / p.step), dr = Math.round(dy / p.step), o = p.orig, cols = p.s.cols;
+    this.setState(st => ({ dragId: p.id, layouts: { ...st.layouts, [p.s.key]: st.layouts[p.s.key].map(w => {
+      if (w.id !== p.id) return w;
+      if (p.mode === 'resize') return { ...w, w: Math.max(1, Math.min(cols - o.col + 1, o.w + dc)), h: Math.max(1, o.h + dr) };
+      return { ...w, col: Math.max(1, Math.min(cols - o.w + 1, o.col + dc)), row: Math.max(1, o.row + dr) };
+    }) } }));
+  }
+  up(e) {
+    clearTimeout(this.lp); const p = this.ptr; this.ptr = null; if (!p) return;
+    this.setState({ dragId: null });
+    if (!p.active || !p.moved) return;
+    this.update(p.s.key, lay => {
+      const me = lay.find(w => w.id === p.id);
+      const clash = lay.some(w => w.id !== p.id && hits(w, me));
+      return clash ? lay.map(w => w.id === p.id ? { ...w, ...p.orig } : w) : lay;
+    });
+  }
+  add(s, type, size) {
+    const [w, h] = MIN[type][size];
+    this.update(s.key, lay => {
+      const pg = this.pageOf(s.key); const maxRow = lay.filter(x => (x.page || 0) === pg).reduce((m, x) => Math.max(m, x.row + x.h), 1);
+      for (let row = 1; row <= maxRow + 1; row++) for (let col = 1; col <= s.cols - w + 1; col++) {
+        const c = { col, row, w, h }; if (!lay.some(x => hits(x, c))) return [...lay, { type, ...c, page: this.pageOf(s.key), id: 'w' + Date.now() }];
+      }
+      return lay;
+    });
+    this.setState({ sheet: null });
+  }
+  renderVals() {
+    const { layouts, edit, sheet, dragId } = this.state;
+    const accentHex = ACCENTS[this.props.accent] || '#7A1F2E';
+    const radiusPx = (this.props.cornerRounding === 'Rounded') ? '22px' : '0px';
+    const innerKey = this.props.innerLayout === 'Widget grid' ? 'innerGrid' : 'innerHero';
+    const screens = SCREENS.map(sc => {
+      const s = sc.key === 'inner' ? { ...sc, key: innerKey, meta: sc.meta + (innerKey === 'innerHero' ? ' · HERO LEFT' : ' · GRID') } : sc;
+      const editing = edit === s.key, cell = this.cell(s);
+      return { ...s, wPx: s.w + 'px', hPx: s.h + 'px', cellPx: cell + 'px', gridCols: `repeat(${s.cols},1fr)`, editing, notEditing: !editing, sheetOpen: sheet === s.key,
+        onEdit: () => this.setState({ edit: s.key }), onDone: () => this.setState({ edit: null, sheet: null }),
+        onOpenSheet: () => this.setState({ sheet: s.key }), onCloseSheet: () => this.setState({ sheet: null }),
+        types: TYPES.map(t => ({ name: t === 'hero' ? 'CLOCK + PHOTO' : t === 'car' ? 'CAR · TESSIE' : t === 'ask' ? 'ASK AN AGENT' : t === 'sports' ? 'SPORTS SCORES' : t === 'apps' ? 'APP SHORTCUTS' : t === 'photo' ? 'PHOTO / QUOTE' : t === 'battery' ? 'BATTERY & SIGNAL' : t === 'storage' ? 'STORAGE & RAM' : t.toUpperCase(), spans: `${MIN[t].S.join('×')} · ${MIN[t].M.join('×')} · ${MIN[t].L.join('×')}`, addS: () => this.add(s, t, 'S'), addM: () => this.add(s, t, 'M'), addL: () => this.add(s, t, 'L') })),
+        onSwipeDown: e => this.swipeDown(e, s), onSwipeUp: e => this.swipeUp(e),
+        dots: Array.from({ length: this.pageCount(s.key) }, (_, i) => ({ on: i === this.pageOf(s.key), off: i !== this.pageOf(s.key), onClick: () => this.setPage(s.key, i), isNew: editing && i === this.pageCount(s.key) - 1 })),
+        widgets: layouts[s.key].filter(w => (w.page || 0) === this.pageOf(s.key)).map(w => { const size = sizeFor(w.type, w.w, w.h); return { ...w, size, gc: `${w.col} / span ${w.w}`, gr: `${w.row} / span ${w.h}`, slotId: `${s.key}-${w.id}`, agent: w.agent || 'claude', apps: w.apps || 'phone,messages,photos,camera', badge: `${w.type.toUpperCase()} · ${size} · ${w.w}×${w.h}`,
+          shadow: editing ? 'inset 0 0 0 2px var(--accent)' : 'none', z: dragId === w.id ? 5 : 1, cursor: editing ? 'grab' : 'default',
+          onDown: e => this.down(e, s, w.id, 'move'), onResizeDown: e => this.down(e, s, w.id, 'resize'), onMove: e => this.move(e), onUp: e => this.up(e), stop: e => e.stopPropagation(),
+          onRemove: () => this.update(s.key, lay => lay.filter(x => x.id !== w.id)) }; }) };
+    });
+    const gallery = TYPES.map(t => ({ type: t, name: t.toUpperCase(), items: ['S','M','L'].map(z => { const [w, h] = MIN[t][z]; return { size: z, label: `${z} · ${w}×${h}`, wPx: (w * 88 + (w - 1) * 8) + 'px', hPx: (h * 88 + (h - 1) * 8) + 'px', slotId: `gal-${t}-${z}` }; }) }));
+    return { accentHex, radiusPx, screens, gallery, showGallery: this.props.showGallery ?? true };
+  }
+}
+</script>
+</body>
+</html>
