@@ -12,8 +12,10 @@ android {
         applicationId = "com.paperlauncher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // CI run number gives every build a higher versionCode, so updaters see each release as new.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.0.$build"
     }
 
     signingConfigs {

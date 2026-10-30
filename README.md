@@ -8,8 +8,8 @@ Kotlin + Jetpack Compose, min Android 8.0 (API 26).
 
 Every push builds the APK with GitHub Actions (`.github/workflows/build-apk.yml`):
 
-- **Releases** → `build-latest` → `PaperLauncher.apk` (easiest from a phone), or
-- **Actions** → latest "Build APK" run → `PaperLauncher-apk` artifact.
+- **Releases** → latest `v1.0.N` → `PaperLauncher-1.0.N.apk` (each build is its own release with a changelog, so updaters like Obtainium pick it up), or
+- **Actions** → latest "Build APK" run → APK artifact.
 
 Install it, then choose **Paper Launcher** when Android asks for a Home app (or Settings → Apps → Default apps → Home app).
 
